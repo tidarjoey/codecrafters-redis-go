@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"time"
 )
 
 var _ = net.Listen
@@ -26,6 +25,5 @@ func main() {
 	}
 	fmt.Println("Accepted a connection from", conn.RemoteAddr())
 
-	// Keep the connection open for 10 seconds for debugging
-	time.Sleep(10 * time.Second)
+	conn.Write([]byte("+PONG\r\n"))
 }
