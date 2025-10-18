@@ -27,9 +27,9 @@ func main() {
 	}
 	fmt.Println("Accepted a connection from:", conn.RemoteAddr())
 
-	reader := bufio.NewReader(conn)
-	for {
-		line, err := reader.ReadBytes('\n')
+	scanner := bufio.NewScanner(conn)
+	for scanner.Scan() {
+		line := scanner.Text()
 		if err != nil {
 			if err == io.EOF {
 				fmt.Println("Client disconnected:", conn.RemoteAddr())
