@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"os"
 )
@@ -23,7 +25,24 @@ func main() {
 		fmt.Println("Error accepting connection: ", err.Error())
 		os.Exit(1)
 	}
-	fmt.Println("Accepted a connection from", conn.RemoteAddr())
+	fmt.Println("Accepted a connection from:", conn.RemoteAddr())
 
-	conn.Write([]byte("+PONG\r\n"))
+	reader := bufio.NewReader(conn)
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			if err == io.EOF {
+				fmt.Println("Client disconnected:", conn.RemoteAddr())
+			} else {
+				fmt.Println("Read error: ", err)
+			}
+			break
+		}
+
+		fmt.Printf("Received: %q\n", line)
+
+		conn.Write([]byte("+PONG\r\n"))
+		fmt.Println("Sent: +PONG")
+		continue
+	}
 }
