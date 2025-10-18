@@ -23,12 +23,20 @@ func main() {
 
 	fmt.Println("Listening on 0.0.0.0:6379...")
 
-	conn, err := l.Accept()
+	for {
+		conn, err := l.Accept()
 
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
+
+		go handleConnection(conn)
 	}
+}
+
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
 
 	fmt.Println("Accepted a connection from:", conn.RemoteAddr())
 
