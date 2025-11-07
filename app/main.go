@@ -91,7 +91,7 @@ func handleConnection(conn net.Conn) {
 					_ = writeNullBulk(conn)
 				}
 			} else {
-				_, _ = conn.Write([]byte("+UNRECOGNISEDCOMMAND\r\n"))
+				_, _ = conn.Write([]byte("+PONG\r\n"))
 			}
 			continue
 		}
