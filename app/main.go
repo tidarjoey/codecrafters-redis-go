@@ -82,7 +82,17 @@ func handleConnection(conn net.Conn) {
 
 			fmt.Println("Parsed RESP command:", parts)
 
-			conn.Write([]byte("+PONG\r\n"))
+			// RESP handling: if command is ECHO, return the concatenated args as a bulk string
+			if len(parts) > 0 && strings.ToUpper(parts[0]) == "ECHO" {
+				if len(parts) >= 2 {
+					payload := strings.Join(parts[1:], " ")
+					_ = writeBulk(conn, payload)
+				} else {
+					_ = writeNullBulk(conn)
+				}
+			} else {
+				_, _ = conn.Write([]byte("+UNRECOGNISEDCOMMAND\r\n"))
+			}
 			continue
 		}
 
@@ -93,4 +103,16 @@ func handleConnection(conn net.Conn) {
 
 		conn.Write([]byte("+PONG\r\n"))
 	}
+}
+
+// writeBulk writes a non-nil bulk string (binary-safe).
+func writeBulk(w io.Writer, s string) error {
+	_, err := fmt.Fprintf(w, "$%d\r\n%s\r\n", len(s), s)
+	return err
+}
+
+// writeNullBulk writes a nil bulk string.
+func writeNullBulk(w io.Writer) error {
+	_, err := io.WriteString(w, "$-1\r\n")
+	return err
 }
