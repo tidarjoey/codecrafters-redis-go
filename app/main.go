@@ -114,6 +114,20 @@ func handleConnection(conn net.Conn) {
 				} else {
 					_, _ = conn.Write([]byte("-ERR wrong number of arguments for 'set' command\r\n"))
 				}
+			case "GET":
+				if len(parts) >= 2 {
+					key := parts[1]
+					storeMu.RLock()
+					val, ok := store[key]
+					storeMu.RUnlock()
+					if ok {
+						_ = writeBulk(conn, val)
+					} else {
+						_ = writeNullBulk(conn)
+					}
+				} else {
+					_, _ = conn.Write([]byte("-ERR wrong number of arguments for 'get' command\r\n"))
+				}
 			default:
 				_, _ = conn.Write([]byte("+OK\r\n"))
 			}
@@ -151,6 +165,20 @@ func handleConnection(conn net.Conn) {
 				_, _ = conn.Write([]byte("+OK\r\n"))
 			} else {
 				_, _ = conn.Write([]byte("-ERR wrong number of arguments for 'set' command\r\n"))
+			}
+		case "GET":
+			if len(fields) >= 2 {
+				key := fields[1]
+				storeMu.RLock()
+				val, ok := store[key]
+				storeMu.RUnlock()
+				if ok {
+					_ = writeBulk(conn, val)
+				} else {
+					_ = writeNullBulk(conn)
+				}
+			} else {
+				_, _ = conn.Write([]byte("-ERR wrong number of arguments for 'get' command\r\n"))
 			}
 		default:
 			_, _ = conn.Write([]byte("+OK\r\n"))
