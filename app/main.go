@@ -8,10 +8,15 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 var _ = net.Listen
 var _ = os.Exit
+
+// in-memory store protected by a mutex for concurrent goroutines
+var store = make(map[string]string)
+var storeMu sync.RWMutex
 
 func main() {
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
@@ -53,6 +58,7 @@ func handleConnection(conn net.Conn) {
 			break
 		}
 
+		// RESP Array form
 		if b == '*' {
 			countLine, _ := reader.ReadBytes('\n')
 			count, _ := strconv.Atoi(strings.TrimSpace(string(countLine)))
@@ -82,26 +88,73 @@ func handleConnection(conn net.Conn) {
 
 			fmt.Println("Parsed RESP command:", parts)
 
-			// RESP handling: if command is ECHO, return the concatenated args as a bulk string
-			if len(parts) > 0 && strings.ToUpper(parts[0]) == "ECHO" {
+			if len(parts) == 0 {
+				continue
+			}
+
+			cmd := strings.ToUpper(parts[0])
+			switch cmd {
+			case "PING":
+				_, _ = conn.Write([]byte("+PONG\r\n"))
+			case "ECHO":
 				if len(parts) >= 2 {
 					payload := strings.Join(parts[1:], " ")
 					_ = writeBulk(conn, payload)
 				} else {
 					_ = writeNullBulk(conn)
 				}
-			} else {
-				_, _ = conn.Write([]byte("+PONG\r\n"))
+			case "SET":
+				if len(parts) >= 3 {
+					key := parts[1]
+					value := parts[2]
+					storeMu.Lock()
+					store[key] = value
+					storeMu.Unlock()
+					_, _ = conn.Write([]byte("+OK\r\n"))
+				} else {
+					_, _ = conn.Write([]byte("-ERR wrong number of arguments for 'set' command\r\n"))
+				}
+			default:
+				_, _ = conn.Write([]byte("+OK\r\n"))
 			}
 			continue
 		}
 
+		// Inline form
 		rest, _ := reader.ReadBytes('\n')
 		line := string(append([]byte{b}, rest...))
 		line = strings.TrimRight(line, "\r\n")
 		fmt.Println("Parsed inline command:", line)
 
-		conn.Write([]byte("+PONG\r\n"))
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+
+		switch strings.ToUpper(fields[0]) {
+		case "PING":
+			_, _ = conn.Write([]byte("+PONG\r\n"))
+		case "ECHO":
+			if len(fields) >= 2 {
+				payload := strings.Join(fields[1:], " ")
+				_ = writeBulk(conn, payload)
+			} else {
+				_ = writeNullBulk(conn)
+			}
+		case "SET":
+			if len(fields) >= 3 {
+				key := fields[1]
+				value := fields[2]
+				storeMu.Lock()
+				store[key] = value
+				storeMu.Unlock()
+				_, _ = conn.Write([]byte("+OK\r\n"))
+			} else {
+				_, _ = conn.Write([]byte("-ERR wrong number of arguments for 'set' command\r\n"))
+			}
+		default:
+			_, _ = conn.Write([]byte("+OK\r\n"))
+		}
 	}
 }
 
