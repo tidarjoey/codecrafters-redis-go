@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -19,6 +20,7 @@ var (
 // in-memory store protected by a mutex for concurrent goroutines
 var (
 	store   = make(map[string]string)
+	expiry  = make(map[string]time.Time)
 	storeMu sync.RWMutex
 )
 
@@ -107,8 +109,24 @@ func handleConnection(conn net.Conn) {
 				if len(parts) >= 3 {
 					key := parts[1]
 					value := parts[2]
+					var ttl time.Duration
+					for i := 3; i+1 < len(parts); i += 2 {
+						switch strings.ToUpper(parts[i]) {
+						case "PX":
+							ms, _ := strconv.ParseInt(parts[i+1], 10, 64)
+							ttl = time.Duration(ms) * time.Millisecond
+						case "EX":
+							sec, _ := strconv.ParseInt(parts[i+1], 10, 64)
+							ttl = time.Duration(sec) * time.Second
+						}
+					}
 					storeMu.Lock()
 					store[key] = value
+					if ttl > 0 {
+						expiry[key] = time.Now().Add(ttl)
+					} else {
+						delete(expiry, key)
+					}
 					storeMu.Unlock()
 					_, _ = conn.Write([]byte("+OK\r\n"))
 				} else {
@@ -119,7 +137,15 @@ func handleConnection(conn net.Conn) {
 					key := parts[1]
 					storeMu.RLock()
 					val, ok := store[key]
+					exp, hasExp := expiry[key]
 					storeMu.RUnlock()
+					if ok && hasExp && time.Now().After(exp) {
+						storeMu.Lock()
+						delete(store, key)
+						delete(expiry, key)
+						storeMu.Unlock()
+						ok = false
+					}
 					if ok {
 						_ = writeBulk(conn, val)
 					} else {
@@ -159,8 +185,24 @@ func handleConnection(conn net.Conn) {
 			if len(fields) >= 3 {
 				key := fields[1]
 				value := fields[2]
+				var ttl time.Duration
+				for i := 3; i+1 < len(fields); i += 2 {
+					switch strings.ToUpper(fields[i]) {
+					case "PX":
+						ms, _ := strconv.ParseInt(fields[i+1], 10, 64)
+						ttl = time.Duration(ms) * time.Millisecond
+					case "EX":
+						sec, _ := strconv.ParseInt(fields[i+1], 10, 64)
+						ttl = time.Duration(sec) * time.Second
+					}
+				}
 				storeMu.Lock()
 				store[key] = value
+				if ttl > 0 {
+					expiry[key] = time.Now().Add(ttl)
+				} else {
+					delete(expiry, key)
+				}
 				storeMu.Unlock()
 				_, _ = conn.Write([]byte("+OK\r\n"))
 			} else {
@@ -171,7 +213,15 @@ func handleConnection(conn net.Conn) {
 				key := fields[1]
 				storeMu.RLock()
 				val, ok := store[key]
+				exp, hasExp := expiry[key]
 				storeMu.RUnlock()
+				if ok && hasExp && time.Now().After(exp) {
+					storeMu.Lock()
+					delete(store, key)
+					delete(expiry, key)
+					storeMu.Unlock()
+					ok = false
+				}
 				if ok {
 					_ = writeBulk(conn, val)
 				} else {
