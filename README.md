@@ -1,23 +1,22 @@
-[![progress-banner](https://backend.codecrafters.io/progress/redis/42cf7ef4-ee9a-43a5-8f6c-1d210d61af35)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
+# ["Build Your Own Redis" Challenge](https://codecrafters.io/challenges/redis)
 
-This is a starting point for Go solutions to the
-["Build Your Own Redis" Challenge](https://codecrafters.io/challenges/redis).
+A Redis-compatible TCP server written in Go, built as part of the CodeCrafters challenge.
 
-In this challenge, you'll build a toy Redis clone that's capable of handling
-basic commands like `PING`, `SET` and `GET`. Along the way we'll learn about
-event loops, the Redis protocol and more.
+## Project Structure
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
-
-# Passing the first stage
-
-The entry point for your Redis implementation is in `app/main.go`. Study and
-uncomment the relevant code, and push your changes to pass the first stage:
-
-```sh
-git commit -am "pass 1st stage" # any msg
-git push origin master
+```
+app/
+  main.go               # Entry point
+internal/
+  server/
+    server.go           # TCP listener, connection handler, command dispatcher
+  store/
+    store.go            # In-memory key/value store
+  resp/
+    parser.go           # RESP protocol parser
+    writer.go           # RESP response writers
 ```
 
-That's all!
+## Progress
+
+[![progress-banner](https://backend.codecrafters.io/progress/redis/42cf7ef4-ee9a-43a5-8f6c-1d210d61af35)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
